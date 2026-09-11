@@ -1,0 +1,14 @@
+{
+    "name": "PDS - API Petshop",
+    "image": "mcr.microsoft.com/devcontainers/python:3.12",
+    "postCreateCommand": "pip install -r backend/requirements.txt",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "humao.rest-client"
+            ]
+        }
+    },
+    "forwardPorts": [5000]
+}

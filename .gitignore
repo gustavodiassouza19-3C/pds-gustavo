@@ -1,0 +1,18 @@
+# Python
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Banco de dados
+*.db
+instance/
+
+# Node / front-end (usado a partir do bloco de React)
+node_modules/
+dist/
+.env
+
+# Editor e sistema
+.vscode/
+.DS_Store
