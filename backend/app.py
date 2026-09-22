@@ -3,150 +3,82 @@ from flask import Flask, jsonify, request
 
 app = Flask(__name__)
 
-BANCO = "petshop.db"
+def db():
+    return sqlite3.connect("banco.db")
 
+@app.route("/miniaturas", methods=["GET"])
+def listar():
+    marca_id = request.args.get("marca_id")
+    con = db()
+    sql = "SELECT m.id, m.modelo, m.escala, m.preco, m.marca_id, b.nome FROM miniaturas m JOIN marcas b ON m.marca_id = b.id"
+    
+    if marca_id:
+        linhas = con.execute(sql + " WHERE m.marca_id = ?", (marca_id,)).fetchall()
+    else:
+        linhas = con.execute(sql).fetchall()
+    con.close()
+    
+    return jsonify([
+        {"id": l[0], "modelo": l[1], "escala": l[2], "preco": l[3], "marca_id": l[4], "marca_nome": l[5]} 
+        for l in linhas
+    ]), 200
 
-def conectar():
-    return sqlite3.connect(BANCO)
+@app.route("/miniaturas/<int:id>", methods=["GET"])
+def buscar(id):
+    con = db()
+    l = con.execute("SELECT m.id, m.modelo, m.escala, m.preco, m.marca_id, b.nome FROM miniaturas m JOIN marcas b ON m.marca_id = b.id WHERE m.id = ?", (id,)).fetchone()
+    con.close()
+    
+    if not l:
+        return jsonify({"erro": "Miniatura nao encontrada"}), 404
+        
+    return jsonify({"id": l[0], "modelo": l[1], "escala": l[2], "preco": l[3], "marca_id": l[4], "marca_nome": l[5]}), 200
 
+@app.route("/miniaturas", methods=["POST"])
+def criar():
+    d = request.get_json() or {}
+    campos = ["modelo", "escala", "preco", "marca_id"]
+    if not all(k in d for k in campos):
+        return jsonify({"erro": "Informe modelo, escala, preco e marca_id"}), 400
+        
+    con = db()
+    cur = con.execute("INSERT INTO miniaturas (modelo, escala, preco, marca_id) VALUES (?, ?, ?, ?)", (d["modelo"], d["escala"], d["preco"], d["marca_id"]))
+    con.commit()
+    novo_id = cur.lastrowid
+    con.close()
+    
+    return jsonify({"id": novo_id, **d}), 201
 
-# ---------------------------------------------------------------
-# ROTAS DE DONOS - CODIGO DE REFERENCIA
-# Estas rotas ja estao prontas. Use elas como modelo para escrever
-# as rotas de pets mais abaixo.
-# ---------------------------------------------------------------
+@app.route("/miniaturas/<int:id>", methods=["PUT"])
+def atualizar(id):
+    d = request.get_json() or {}
+    campos = ["modelo", "escala", "preco", "marca_id"]
+    if not all(k in d for k in campos):
+        return jsonify({"erro": "Informe modelo, escala, preco e marca_id"}), 400
+        
+    con = db()
+    cur = con.execute("UPDATE miniaturas SET modelo=?, escala=?, preco=?, marca_id=? WHERE id=?", (d["modelo"], d["escala"], d["preco"], d["marca_id"], id))
+    con.commit()
+    encontrado = cur.rowcount > 0
+    con.close()
+    
+    if not encontrado:
+        return jsonify({"erro": "Miniatura nao encontrada"}), 404
+        
+    return jsonify({"id": id, **d}), 200
 
-
-@app.route("/donos", methods=["GET"])
-def listar_donos():
-    conexao = conectar()
-    cursor = conexao.cursor()
-    cursor.execute("SELECT id, nome, telefone FROM donos")
-    linhas = cursor.fetchall()
-    conexao.close()
-
-    donos = []
-    for linha in linhas:
-        donos.append({
-            "id": linha[0],
-            "nome": linha[1],
-            "telefone": linha[2]
-        })
-
-    return jsonify(donos)
-
-
-@app.route("/donos/<int:dono_id>", methods=["GET"])
-def buscar_dono(dono_id):
-    conexao = conectar()
-    cursor = conexao.cursor()
-    cursor.execute(
-        "SELECT id, nome, telefone FROM donos WHERE id = ?",
-        (dono_id,)
-    )
-    linha = cursor.fetchone()
-    conexao.close()
-
-    if linha is None:
-        return jsonify({"erro": "Dono nao encontrado"}), 404
-
-    dono = {
-        "id": linha[0],
-        "nome": linha[1],
-        "telefone": linha[2]
-    }
-
-    return jsonify(dono)
-
-
-@app.route("/donos", methods=["POST"])
-def criar_dono():
-    dados = request.json
-
-    if not dados or "nome" not in dados or "telefone" not in dados:
-        return jsonify({"erro": "Informe nome e telefone"}), 400
-
-    conexao = conectar()
-    cursor = conexao.cursor()
-    cursor.execute(
-        "INSERT INTO donos (nome, telefone) VALUES (?, ?)",
-        (dados["nome"], dados["telefone"])
-    )
-    conexao.commit()
-    novo_id = cursor.lastrowid
-    conexao.close()
-
-    dono = {
-        "id": novo_id,
-        "nome": dados["nome"],
-        "telefone": dados["telefone"]
-    }
-
-    return jsonify(dono), 201
-
-
-@app.route("/donos/<int:dono_id>", methods=["PUT"])
-def atualizar_dono(dono_id):
-    dados = request.json
-
-    if not dados or "nome" not in dados or "telefone" not in dados:
-        return jsonify({"erro": "Informe nome e telefone"}), 400
-
-    conexao = conectar()
-    cursor = conexao.cursor()
-    cursor.execute(
-        "UPDATE donos SET nome = ?, telefone = ? WHERE id = ?",
-        (dados["nome"], dados["telefone"], dono_id)
-    )
-    conexao.commit()
-    alterados = cursor.rowcount
-    conexao.close()
-
-    if alterados == 0:
-        return jsonify({"erro": "Dono nao encontrado"}), 404
-
-    dono = {
-        "id": dono_id,
-        "nome": dados["nome"],
-        "telefone": dados["telefone"]
-    }
-
-    return jsonify(dono)
-
-
-@app.route("/donos/<int:dono_id>", methods=["DELETE"])
-def remover_dono(dono_id):
-    conexao = conectar()
-    cursor = conexao.cursor()
-    cursor.execute("DELETE FROM donos WHERE id = ?", (dono_id,))
-    conexao.commit()
-    removidos = cursor.rowcount
-    conexao.close()
-
-    if removidos == 0:
-        return jsonify({"erro": "Dono nao encontrado"}), 404
-
-    return jsonify({"mensagem": "Dono removido com sucesso"})
-
-
-# ---------------------------------------------------------------
-# ROTAS DE PETS - SUA PARTE
-#
-# Escreva abaixo as rotas de pets seguindo o mesmo padrao usado
-# nas rotas de donos. O contrato de cada rota (URL, metodo, corpo
-# da requisicao e resposta esperada) esta no README.md.
-#
-# 1. GET    /pets              lista todos os pets com o nome do dono
-# 2. GET    /pets/<id>         busca um pet pelo id
-# 3. POST   /pets              cadastra um novo pet
-# 4. PUT    /pets/<id>         atualiza um pet
-# 5. DELETE /pets/<id>         remove um pet
-#
-# Atencao nas duas rotas que valem ponto extra de atencao:
-# - o GET /pets precisa usar JOIN para trazer o nome do dono
-# - o GET /pets aceita o filtro opcional ?dono_id=
-# ---------------------------------------------------------------
-
+@app.route("/miniaturas/<int:id>", methods=["DELETE"])
+def deletar(id):
+    con = db()
+    cur = con.execute("DELETE FROM miniaturas WHERE id=?", (id,))
+    con.commit()
+    encontrado = cur.rowcount > 0
+    con.close()
+    
+    if not encontrado:
+        return jsonify({"erro": "Miniatura nao encontrada"}), 404
+        
+    return jsonify({"mensagem": "Miniatura removida com sucesso"}), 200
 
 if __name__ == "__main__":
     app.run(debug=True)
