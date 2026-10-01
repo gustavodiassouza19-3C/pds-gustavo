@@ -1,7 +1,12 @@
 import sqlite3
 from flask import Flask, jsonify, request
+from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
+
+app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///petshop.db"
+
+db = SQLAlchemy(app)
 
 def db():
     return sqlite3.connect("banco.db")
