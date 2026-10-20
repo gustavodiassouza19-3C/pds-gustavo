@@ -4,7 +4,9 @@ from flask_sqlalchemy import SQLAlchemy
 
 app = Flask(__name__)
 
+# Configuração do banco SQLite
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///petshop.db"
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 db = SQLAlchemy(app)
 
@@ -17,6 +19,7 @@ class Dono(db.Model):
     nome = db.Column(db.String(100), nullable=False)
     telefone = db.Column(db.String(20), nullable=False)
 
+    # Relacionamento entre dono e pets
     pets = db.relationship("Pet", backref="dono")
 
     def to_dict(self):
@@ -72,9 +75,9 @@ def buscar_dono(dono_id):
 
 @app.route("/donos", methods=["POST"])
 def criar_dono():
-    dados = request.get_json() or {}
+    dados = request.get_json(silent=True) or {}
 
-    if "nome" not in dados or "telefone" not in dados:
+    if not dados.get("nome") or not dados.get("telefone"):
         return jsonify({
             "erro": "Informe nome e telefone"
         }), 400
@@ -92,9 +95,9 @@ def criar_dono():
 
 @app.route("/donos/<int:dono_id>", methods=["PUT"])
 def atualizar_dono(dono_id):
-    dados = request.get_json() or {}
+    dados = request.get_json(silent=True) or {}
 
-    if "nome" not in dados or "telefone" not in dados:
+    if not dados.get("nome") or not dados.get("telefone"):
         return jsonify({
             "erro": "Informe nome e telefone"
         }), 400
@@ -134,6 +137,8 @@ def remover_dono(dono_id):
 
 # ROTAS DE PETS
 
+# GET /pets
+# GET /pets?dono_id=1
 @app.route("/pets", methods=["GET"])
 def listar_pets():
     dono_id = request.args.get("dono_id")
@@ -141,7 +146,7 @@ def listar_pets():
     if dono_id is not None:
         try:
             dono_id = int(dono_id)
-        except ValueError:
+        except (ValueError, TypeError):
             return jsonify({"erro": "dono_id invalido"}), 400
 
         pets = Pet.query.filter_by(dono_id=dono_id).all()
@@ -151,6 +156,7 @@ def listar_pets():
     return jsonify([pet.to_dict() for pet in pets])
 
 
+# GET /pets/<id>
 @app.route("/pets/<int:pet_id>", methods=["GET"])
 def buscar_pet(pet_id):
     pet = db.session.get(Pet, pet_id)
@@ -161,9 +167,10 @@ def buscar_pet(pet_id):
     return jsonify(pet.to_dict())
 
 
+# POST /pets
 @app.route("/pets", methods=["POST"])
 def criar_pet():
-    dados = request.get_json() or {}
+    dados = request.get_json(silent=True) or {}
 
     campos = ["nome", "especie", "idade", "dono_id"]
 
@@ -172,10 +179,21 @@ def criar_pet():
             "erro": "Informe nome, especie, idade e dono_id"
         }), 400
 
+    if not dados["nome"] or not dados["especie"]:
+        return jsonify({
+            "erro": "Informe nome, especie, idade e dono_id"
+        }), 400
+
     try:
+        idade = int(dados["idade"])
         dono_id = int(dados["dono_id"])
     except (ValueError, TypeError):
-        return jsonify({"erro": "dono_id invalido"}), 400
+        return jsonify({
+            "erro": "idade e dono_id devem ser numeros inteiros"
+        }), 400
+
+    if idade < 0:
+        return jsonify({"erro": "idade invalida"}), 400
 
     dono = db.session.get(Dono, dono_id)
 
@@ -185,7 +203,7 @@ def criar_pet():
     novo_pet = Pet(
         nome=dados["nome"],
         especie=dados["especie"],
-        idade=dados["idade"],
+        idade=idade,
         dono_id=dono_id
     )
 
@@ -195,13 +213,19 @@ def criar_pet():
     return jsonify(novo_pet.to_dict()), 201
 
 
+# PUT /pets/<id>
 @app.route("/pets/<int:pet_id>", methods=["PUT"])
 def atualizar_pet(pet_id):
-    dados = request.get_json() or {}
+    dados = request.get_json(silent=True) or {}
 
     campos = ["nome", "especie", "idade", "dono_id"]
 
     if not all(campo in dados for campo in campos):
+        return jsonify({
+            "erro": "Informe nome, especie, idade e dono_id"
+        }), 400
+
+    if not dados["nome"] or not dados["especie"]:
         return jsonify({
             "erro": "Informe nome, especie, idade e dono_id"
         }), 400
@@ -212,9 +236,15 @@ def atualizar_pet(pet_id):
         return jsonify({"erro": "Pet nao encontrado"}), 404
 
     try:
+        idade = int(dados["idade"])
         dono_id = int(dados["dono_id"])
     except (ValueError, TypeError):
-        return jsonify({"erro": "dono_id invalido"}), 400
+        return jsonify({
+            "erro": "idade e dono_id devem ser numeros inteiros"
+        }), 400
+
+    if idade < 0:
+        return jsonify({"erro": "idade invalida"}), 400
 
     dono = db.session.get(Dono, dono_id)
 
@@ -223,7 +253,7 @@ def atualizar_pet(pet_id):
 
     pet.nome = dados["nome"]
     pet.especie = dados["especie"]
-    pet.idade = dados["idade"]
+    pet.idade = idade
     pet.dono_id = dono_id
 
     db.session.commit()
@@ -231,6 +261,7 @@ def atualizar_pet(pet_id):
     return jsonify(pet.to_dict())
 
 
+# DELETE /pets/<id>
 @app.route("/pets/<int:pet_id>", methods=["DELETE"])
 def remover_pet(pet_id):
     pet = db.session.get(Pet, pet_id)
