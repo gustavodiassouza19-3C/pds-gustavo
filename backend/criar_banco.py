@@ -1,36 +1,47 @@
-import sqlite3
 
-def init_db():
-    conn = sqlite3.connect("banco.db")
-    cur = conn.cursor()
+from app import app, db, Dono, Pet
 
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS marcas (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome TEXT NOT NULL,
-            pais TEXT NOT NULL
+with app.app_context():
+    db.create_all()
+
+    # Insere os dados de exemplo somente se o banco estiver vazio
+    if Dono.query.first() is None:
+        ana = Dono(
+            nome="Ana Paula Ribeiro",
+            telefone="45999110001"
         )
-    """)
 
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS miniaturas (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            modelo TEXT NOT NULL,
-            escala TEXT NOT NULL,
-            preco REAL NOT NULL,
-            marca_id INTEGER NOT NULL,
-            FOREIGN KEY (marca_id) REFERENCES marcas(id)
+        bruno = Dono(
+            nome="Bruno Martins",
+            telefone="45999110002"
         )
-    """)
 
-    cur.execute("INSERT INTO marcas (nome, pais) VALUES ('Matchbox', 'Reino Unido')")
-    cur.execute("INSERT INTO marcas (nome, pais) VALUES ('Jada Toys', 'EUA')")
+        db.session.add(ana)
+        db.session.add(bruno)
+        db.session.commit()
 
-    cur.execute("INSERT INTO miniaturas (modelo, escala, preco, marca_id) VALUES ('Ford Mustang 1969', '1:64', 32.50, 1)")
-    cur.execute("INSERT INTO miniaturas (modelo, escala, preco, marca_id) VALUES ('Dodge Charger 1970', '1:24', 199.90, 2)")
+        rex = Pet(
+            nome="Rex",
+            especie="cachorro",
+            idade=4,
+            dono_id=ana.id
+        )
 
-    conn.commit()
-    conn.close()
+        mimi = Pet(
+            nome="Mimi",
+            especie="gato",
+            idade=2,
+            dono_id=ana.id
+        )
 
-if __name__ == "__main__":
-    init_db()
+        thor = Pet(
+            nome="Thor",
+            especie="cachorro",
+            idade=7,
+            dono_id=bruno.id
+        )
+
+        db.session.add_all([rex, mimi, thor])
+        db.session.commit()
+
+    print("Banco criado com sucesso.")
