@@ -9,6 +9,37 @@ GET http://localhost:5000/donos/1
 
 ###
 
+### BUSCAR DONO POR ID COM OS PETS
+GET http://localhost:5000/donos/1?pets=true
+
+###
+
+### LISTAR PETS DO DONO 1 (ROTA DA AULA 03)
+GET http://localhost:5000/donos/1/pets
+
+###
+
+### CADASTRAR UM DONO SEM PETS (O ID VOLTA NA RESPOSTA, EX.: 3)
+POST http://localhost:5000/donos
+Content-Type: application/json
+
+{
+  "nome": "Carlos Souza",
+  "telefone": "45999112233"
+}
+
+###
+
+### LISTAR PETS DESSE DONO (DEVE VIR LISTA VAZIA [])
+GET http://localhost:5000/donos/3/pets
+
+###
+
+### LISTAR PETS DE UM DONO INEXISTENTE (DEVE VIR 404)
+GET http://localhost:5000/donos/999/pets
+
+###
+
 ### CADASTRAR DONO
 POST http://localhost:5000/donos
 Content-Type: application/json
@@ -51,7 +82,7 @@ POST http://localhost:5000/pets
 Content-Type: application/json
 
 {
-  "nome": "Bidu",
+  "nome": "Marroni",
   "especie": "cachorro",
   "idade": 2,
   "dono_id": 1
