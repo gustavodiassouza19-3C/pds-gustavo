@@ -11,7 +11,7 @@ app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 db = SQLAlchemy(app)
 
 
-# MODELO DONO
+
 class Dono(db.Model):
     __tablename__ = "donos"
 
@@ -30,7 +30,7 @@ class Dono(db.Model):
         }
 
 
-# MODELO PET
+
 class Pet(db.Model):
     __tablename__ = "pets"
 
@@ -70,7 +70,25 @@ def buscar_dono(dono_id):
     if dono is None:
         return jsonify({"erro": "Dono nao encontrado"}), 404
 
-    return jsonify(dono.to_dict())
+    dados = dono.to_dict()
+
+    # Os pets só entram quando a rota pede (?pets=true), assim o to_dict() do dono
+    # não carrega a lista toda vez que alguém lista os donos.
+    if request.args.get("pets", "").lower() in ("1", "true", "sim"):
+        dados["pets"] = [pet.to_dict() for pet in dono.pets]
+
+    return jsonify(dados)
+
+
+# GET /donos/<id>/pets
+@app.route("/donos/<int:dono_id>/pets", methods=["GET"])
+def listar_pets_do_dono(dono_id):
+    dono = db.session.get(Dono, dono_id)
+
+    if dono is None:
+        return jsonify({"erro": "Dono nao encontrado"}), 404
+
+    return jsonify([pet.to_dict() for pet in dono.pets])
 
 
 @app.route("/donos", methods=["POST"])
